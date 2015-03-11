@@ -1,8 +1,13 @@
+'use strict'
+
+_ = require('lodash')
+cli = require('cli')
+dns = require('dns')
 env = process.env
 Hogan = require('hogan.js')
 isTcpOn = require('is-tcp-on')
 request = require('request')
-_ = require('lodash')
+Q = require('q')
 
 required_envvars = [
   'OS_AUTH_URL',
@@ -61,21 +66,58 @@ designateRecords = (token, endpoint, recordName, callback) ->
           'X-Auth-Token': token
       request.get options, (error, response, body) ->
         records = body.records.filter (r) ->
-          r.name == recordName && r.type in ['A','AAAA']
+          r.name == recordName
         callback(null, records)
 
-recordName = (process.argv[2] || process.exit(1)) + '.'
-tcpPort = (process.argv[3] || 80) + '.'
+resolve = (rrtype) -> (hostname) ->
+  d = Q.defer()
+  dns.resolve hostname, rrtype, (err, result) ->
+    d.resolve(if err then [] else result)
+  d.promise
 
-newTokenAndEndpoint (err, token, endpoint) ->
-  designateRecords token, endpoint, recordName, (error, records) ->
-    tmpl = Hogan.compile("{{id}}\t{{name}}\t{{data}}\t{{active}}")
-    records.forEach (r) ->
-      isTcpOn({
+# eg. resolveAll('www.google.com', 'www.internode.on.net') ⇒
+# { A: [ '150.101.140.197', '216.58.220.100' ],
+#   AAAA: [ '2001:44b8:69:2:1::100', '2404:6800:4006:801::2004' ] }
+resolveAll = (hostnames) ->
+  resolveType = (rrtype) ->
+    Q.all(hostnames.map(resolve(rrtype)))
+     .then(_.flow(_.flatten, _.sortBy))
+  resolveTypes = (types) ->
+    Q.all(types.map resolveType)
+     .then(_.partial(_.zipObject, types))
+  resolveTypes(['A', 'AAAA'])
+
+
+cli.parse
+  'port':     ['p', 'TCP port to check', 'number', 80]
+  'servers':  ['s', 'comma-delimited list of servers', 'string']
+
+cli.main (args, options) ->
+  recordName = (args[1] || process.exit(1)) + '.'
+  servers = (options.servers || process.exit(1)).split(',')
+  tcpPort = options.port
+  resolveAll(servers).then (obj) ->
+    tmpl = Hogan.compile("{{type}}\t{{ip}}\t{{active}}")
+    Object.keys(obj).forEach (rrtype) ->
+      obj[rrtype].forEach (ip) ->
+        r = {ip: ip, type: rrtype}
+        isTcpOn({
+          port: tcpPort,
+          host: r.ip,
+        }).then( () ->
+          console.log(tmpl.render(_.extend(r, { active: "Up" })))
+        , () ->
+          console.log(tmpl.render(_.extend(r, { active: "Down" })))
+        )
+  newTokenAndEndpoint (err, token, endpoint) ->
+    designateRecords token, endpoint, recordName, (error, records) ->
+      tmpl = Hogan.compile("{{type}}\t{{name}}\t{{data}}\t{{active}}")
+      records.filter((r) -> r.type in ['A','AAAA']).forEach (r) ->
+        isTcpOn({
           port: tcpPort,
           host: r.data,
-      }).then( () ->
-        console.log(tmpl.render(_.extend(r, { active: "Up" })))
-      , () ->
-        console.log(tmpl.render(_.extend(r, { active: "Down" })))
-      )
+        }).then( () ->
+          console.log(tmpl.render(_.extend(r, { active: "Up" })))
+        , () ->
+          console.log(tmpl.render(_.extend(r, { active: "Down" })))
+        )
