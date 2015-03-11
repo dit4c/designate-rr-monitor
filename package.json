@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "coffee-script": "^1.9.0",
+    "hogan.js": "^3.0.2",
+    "is-tcp-on": "^0.1.2",
     "lodash": "^3.1.0",
     "request": "^2.53.0"
   }

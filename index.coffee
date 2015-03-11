@@ -1,4 +1,6 @@
 env = process.env
+Hogan = require('hogan.js')
+isTcpOn = require('is-tcp-on')
 request = require('request')
 _ = require('lodash')
 
@@ -58,10 +60,22 @@ designateRecords = (token, endpoint, recordName, callback) ->
           'Accept': 'application/json'
           'X-Auth-Token': token
       request.get options, (error, response, body) ->
-        callback(null, body.records)
+        records = body.records.filter (r) ->
+          r.name == recordName && r.type in ['A','AAAA']
+        callback(null, records)
 
 recordName = (process.argv[2] || process.exit(1)) + '.'
+tcpPort = (process.argv[3] || 80) + '.'
 
 newTokenAndEndpoint (err, token, endpoint) ->
   designateRecords token, endpoint, recordName, (error, records) ->
-    console.log(records)
+    tmpl = Hogan.compile("{{id}}\t{{name}}\t{{data}}\t{{active}}")
+    records.forEach (r) ->
+      isTcpOn({
+          port: tcpPort,
+          host: r.data,
+      }).then( () ->
+        console.log(tmpl.render(_.extend(r, { active: "Up" })))
+      , () ->
+        console.log(tmpl.render(_.extend(r, { active: "Down" })))
+      )
