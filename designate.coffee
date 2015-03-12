@@ -1,10 +1,13 @@
 'use strict'
 
 _ = require('lodash')
+Q = require('q')
 env = process.env
+moment = require('moment')
 request = require('request')
 
 newTokenAndEndpoint = (callback) ->
+  d = Q.defer()
   options =
     url: env.OS_AUTH_URL + 'tokens'
     json: true
@@ -18,7 +21,6 @@ newTokenAndEndpoint = (callback) ->
     if (error)
       callback(error)
     else
-      token = body.access.token.id
       designateEndpoint = _.chain(body.access.serviceCatalog)
         .filter (obj) -> obj.type == 'dns'
         .pluck 'endpoints'
@@ -26,7 +28,11 @@ newTokenAndEndpoint = (callback) ->
         .pluck 'publicURL'
         .head()
         .value()
-      callback(null, token, designateEndpoint)
+      callback null,
+        expiry: body.access.token.expires,
+        token: body.access.token.id,
+        endpoint: designateEndpoint
+  d.promise
 
 designateRecords = (token, endpoint, recordName, callback) ->
   options =
@@ -52,6 +58,34 @@ designateRecords = (token, endpoint, recordName, callback) ->
           r.name == recordName
         callback(null, records)
 
-module.exports = (recordName) -> (callback) ->
-  newTokenAndEndpoint (err, token, endpoint) ->
-    designateRecords token, endpoint, recordName, callback
+Designate = () -> (recordName) ->
+  expiryBuffer = moment.duration('5', 'minutes')
+  infoRef = {
+    info: {
+      expiry: '1970-01-01',
+      token: null,
+      designateUrl: null
+    }
+  }
+
+  haveCurrentToken = () ->
+    moment(infoRef.info.expiry).isAfter(moment().add(expiryBuffer))
+
+  token = () ->
+    d = Q.defer()
+    if haveCurrentToken()
+      d.resolve(info.info)
+    else
+      newTokenAndEndpoint (err, info) ->
+        infoRef.info = info
+        d.resolve(infoRef.info)
+    d.promise
+
+  d = Q.defer()
+  token().then (info) ->
+    designateRecords info.token, info.endpoint, recordName, (error, records) ->
+      if error then d.reject(error)
+      else d.resolve(records)
+  d.promise
+
+module.exports = Designate()
