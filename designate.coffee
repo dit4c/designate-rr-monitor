@@ -19,7 +19,7 @@ newTokenAndEndpoint = (callback) ->
           password: env.OS_PASSWORD
   request.post options, (error, response, body) ->
     if (error)
-      callback(error)
+      d.reject(error)
     else
       designateEndpoint = _.chain(body.access.serviceCatalog)
         .filter (obj) -> obj.type == 'dns'
@@ -28,13 +28,14 @@ newTokenAndEndpoint = (callback) ->
         .pluck 'publicURL'
         .head()
         .value()
-      callback null,
+      d.resolve
         expiry: body.access.token.expires,
         token: body.access.token.id,
         endpoint: designateEndpoint
   d.promise
 
 designateRecords = (token, endpoint, recordName, callback) ->
+  d = Q.defer()
   options =
     url: endpoint + '/domains'
     json: true
@@ -43,7 +44,7 @@ designateRecords = (token, endpoint, recordName, callback) ->
       'X-Auth-Token': token
   request.get options, (error, response, body) ->
     if (error)
-      callback(error)
+      d.reject(error)
     else
       domain = _.find body.domains, (domain) ->
         recordName.indexOf(domain.name) != -1
@@ -56,36 +57,30 @@ designateRecords = (token, endpoint, recordName, callback) ->
       request.get options, (error, response, body) ->
         records = body.records.filter (r) ->
           r.name == recordName
-        callback(null, records)
+        d.resolve(records)
+  d.promise
 
-Designate = () -> (recordName) ->
+factory = () ->
   expiryBuffer = moment.duration('5', 'minutes')
-  infoRef = {
-    info: {
+  infoRef =
+    info:
       expiry: '1970-01-01',
       token: null,
       designateUrl: null
-    }
-  }
 
   haveCurrentToken = () ->
     moment(infoRef.info.expiry).isAfter(moment().add(expiryBuffer))
 
   token = () ->
-    d = Q.defer()
     if haveCurrentToken()
-      d.resolve(info.info)
+      Q(infoRef.info)
     else
-      newTokenAndEndpoint (err, info) ->
+      newTokenAndEndpoint().then (info) ->
         infoRef.info = info
-        d.resolve(infoRef.info)
-    d.promise
+        info
 
-  d = Q.defer()
-  token().then (info) ->
-    designateRecords info.token, info.endpoint, recordName, (error, records) ->
-      if error then d.reject(error)
-      else d.resolve(records)
-  d.promise
+  (recordName) ->
+    token().then (info) ->
+      designateRecords(info.token, info.endpoint, recordName)
 
-module.exports = Designate()
+module.exports = factory()
