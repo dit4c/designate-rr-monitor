@@ -29,26 +29,37 @@ cli.main (args, options) ->
   recordName = (args[1] || process.exit(1)) + '.'
   servers = (options.servers || process.exit(1)).split(',')
   tcpPort = options.port
-  resolveAll(servers).then (records) ->
-    tmpl = Hogan.compile("{{type}}\t{{addr}}\t{{active}}")
-    Q.all records.map (r) ->
-      isTcpOn({
-        port: tcpPort,
-        host: r.addr,
-      }).then( () ->
-        console.log(tmpl.render(_.extend(r, { active: "Up" })))
-      , () ->
-        console.log(tmpl.render(_.extend(r, { active: "Down" })))
-      )
-  require('./designate')(recordName).list()
-    .done (records) ->
-      tmpl = Hogan.compile("{{type}}\t{{name}}\t{{data}}\t{{active}}")
-      records.filter((r) -> r.type in ['A','AAAA']).forEach (r) ->
+
+  designate = require('./designate')(recordName)
+
+  resolveAll(servers)
+    .then (records) ->
+      Q.all records.map (r) ->
+        d = Q.defer()
         isTcpOn({
           port: tcpPort,
-          host: r.data,
+          host: r.addr,
         }).then( () ->
-          console.log(tmpl.render(_.extend(r, { active: "Up" })))
+          d.resolve(_.extend(r, { active: true }))
         , () ->
-          console.log(tmpl.render(_.extend(r, { active: "Down" })))
+          d.resolve(_.extend(r, { active: false }))
         )
+        d.promise
+    .then (records) ->
+      tmpl = Hogan.compile("{{name}}\t{{type}}\t{{ttl}}\t{{data}}")
+      designate.list()
+        .then (currentRecords) ->
+          console.log("Before:")
+          currentRecords.forEach (r) ->
+            console.log(tmpl.render(r))
+        .then () ->
+          designate.addAll(records.filter (r) -> r.active)
+        .then () ->
+          designate.retainAll(records.filter (r) -> r.active != false)
+        .then () ->
+          designate.list()
+        .then (currentRecords) ->
+          console.log("After:")
+          currentRecords.forEach (r) ->
+            console.log(tmpl.render(r))
+    .done()

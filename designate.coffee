@@ -2,6 +2,7 @@
 
 _ = require('lodash')
 Q = require('q')
+async = require('async-q')
 env = process.env
 moment = require('moment')
 request = require('request')
@@ -74,7 +75,8 @@ addRecord = (token, endpoint, domainId, record) ->
       'X-Auth-Token': token
     body: record
   request.post options, (error, response, body) ->
-    if (error)
+    if error || response.statusCode != 200
+      console.log(error || body)
       d.reject(error)
     else
       d.resolve(body)
@@ -86,9 +88,9 @@ deleteRecord = (token, endpoint, domainId, recordId) ->
     url: endpoint + '/domains/' + domainId + '/records/' + recordId
     headers:
       'X-Auth-Token': token
-    body: record
   request.del options, (error, response) ->
-    if (error)
+    if error || response.statusCode != 200
+      console.log(error || response.statusCode)
       d.reject(error)
     else
       d.resolve()
@@ -130,14 +132,35 @@ factory = (recordName, options) ->
   add = (type, data) ->
     token().then (info) ->
       addRecord info.token, info.endpoint, info.domain_id,
-        name: name
+        name: recordName
         type: type
         data: data
+        ttl: defaultTTL
 
   remove = (record_id) ->
     token().then (info) ->
       deleteRecord info.token, info.endpoint, info.domain_id, record_id
 
+  obj.addAll = (records) ->
+    obj.list()
+      .then (existingRecords) ->
+        recordsToAdd = _.reject records, (r1) ->
+          _.some existingRecords, (r2) ->
+            r1.type == r2.type && r1.addr == r2.data
+        jobs = recordsToAdd.map (r) -> () ->
+          console.log("Adding "+r.addr)
+          add(r.type, r.addr)
+        async.series(jobs)
+  obj.retainAll = (records) ->
+    obj.list()
+      .then (existingRecords) ->
+        recordsToDelete = _.reject existingRecords, (r1) ->
+          _.some records, (r2) ->
+            r1.type == r2.type && r1.data == r2.addr
+        jobs = recordsToDelete.map (r) -> () ->
+          console.log("Removing "+r.data)
+          remove(r.id)
+        async.series(jobs)
   obj
 
 module.exports = factory
