@@ -42,7 +42,7 @@ cli.main (args, options) ->
         , () ->
           console.log(tmpl.render(_.extend(r, { active: "Down" })))
         )
-  require('./designate')(recordName)
+  require('./designate')(recordName).list()
     .done (records) ->
       tmpl = Hogan.compile("{{type}}\t{{name}}\t{{data}}\t{{active}}")
       records.filter((r) -> r.type in ['A','AAAA']).forEach (r) ->

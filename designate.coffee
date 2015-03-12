@@ -34,7 +34,7 @@ newTokenAndEndpoint = (callback) ->
         endpoint: designateEndpoint
   d.promise
 
-designateRecords = (token, endpoint, recordName, callback) ->
+listDomains = (token, endpoint) ->
   d = Q.defer()
   options =
     url: endpoint + '/domains'
@@ -46,21 +46,57 @@ designateRecords = (token, endpoint, recordName, callback) ->
     if (error)
       d.reject(error)
     else
-      domain = _.find body.domains, (domain) ->
-        recordName.indexOf(domain.name) != -1
-      options =
-        url: endpoint + '/domains/' + domain.id + '/records'
-        json: true
-        headers:
-          'Accept': 'application/json'
-          'X-Auth-Token': token
-      request.get options, (error, response, body) ->
-        records = body.records.filter (r) ->
-          r.name == recordName
-        d.resolve(records)
+      d.resolve(body.domains)
   d.promise
 
-factory = () ->
+listRecords = (token, endpoint, domainId) ->
+  d = Q.defer()
+  options =
+    url: endpoint + '/domains/' + domainId + '/records'
+    json: true
+    headers:
+      'Accept': 'application/json'
+      'X-Auth-Token': token
+  request.get options, (error, response, body) ->
+    if (error)
+      d.reject(error)
+    else
+      d.resolve(body.records)
+  d.promise
+
+addRecord = (token, endpoint, domainId, record) ->
+  d = Q.defer()
+  options =
+    url: endpoint + '/domains/' + domainId + '/records'
+    json: true
+    headers:
+      'Accept': 'application/json'
+      'X-Auth-Token': token
+    body: record
+  request.post options, (error, response, body) ->
+    if (error)
+      d.reject(error)
+    else
+      d.resolve(body)
+  d.promise
+
+deleteRecord = (token, endpoint, domainId, recordId) ->
+  d = Q.defer()
+  options =
+    url: endpoint + '/domains/' + domainId + '/records/' + recordId
+    headers:
+      'X-Auth-Token': token
+    body: record
+  request.del options, (error, response) ->
+    if (error)
+      d.reject(error)
+    else
+      d.resolve()
+  d.promise
+
+factory = (recordName, options) ->
+  options ?= {}
+  defaultTTL = options.ttl || 60
   expiryBuffer = moment.duration('5', 'minutes')
   infoRef =
     info:
@@ -76,11 +112,32 @@ factory = () ->
       Q(infoRef.info)
     else
       newTokenAndEndpoint().then (info) ->
-        infoRef.info = info
-        info
+        listDomains(info.token, info.endpoint)
+          .then (domains) ->
+            _.find domains, (d) -> recordName.indexOf(d.name) != -1
+          .then (domain) ->
+            infoRef.info = _.extend(info, { domain_id: domain.id })
 
-  (recordName) ->
+  obj = {}
+  obj.list = () ->
+    token()
+      .then (info) ->
+        listRecords(info.token, info.endpoint, info.domain_id)
+      .then (records) ->
+        _.filter records, (record) ->
+          record.name == recordName
+
+  add = (type, data) ->
     token().then (info) ->
-      designateRecords(info.token, info.endpoint, recordName)
+      addRecord info.token, info.endpoint, info.domain_id,
+        name: name
+        type: type
+        data: data
 
-module.exports = factory()
+  remove = (record_id) ->
+    token().then (info) ->
+      deleteRecord info.token, info.endpoint, info.domain_id, record_id
+
+  obj
+
+module.exports = factory
