@@ -1,13 +1,15 @@
 'use strict'
 
 _ = require('lodash')
+Hogan = require('hogan.js')
+Q = require('q')
 cli = require('cli')
 dns = require('dns')
 env = process.env
-Hogan = require('hogan.js')
 isTcpOn = require('is-tcp-on')
 request = require('request')
-Q = require('q')
+
+resolveAll = require('./resolver')
 
 required_envvars = [
   'OS_AUTH_URL',
@@ -68,25 +70,6 @@ designateRecords = (token, endpoint, recordName, callback) ->
         records = body.records.filter (r) ->
           r.name == recordName
         callback(null, records)
-
-resolve = (rrtype) -> (hostname) ->
-  d = Q.defer()
-  dns.resolve hostname, rrtype, (err, result) ->
-    d.resolve(if err then [] else result)
-  d.promise
-
-# eg. resolveAll('www.google.com', 'www.internode.on.net') ⇒
-# { A: [ '150.101.140.197', '216.58.220.100' ],
-#   AAAA: [ '2001:44b8:69:2:1::100', '2404:6800:4006:801::2004' ] }
-resolveAll = (hostnames) ->
-  resolveType = (rrtype) ->
-    Q.all(hostnames.map(resolve(rrtype)))
-     .then(_.flow(_.flatten, _.sortBy))
-  resolveTypes = (types) ->
-    Q.all(types.map resolveType)
-     .then(_.partial(_.zipObject, types))
-  resolveTypes(['A', 'AAAA'])
-
 
 cli.parse
   'port':     ['p', 'TCP port to check', 'number', 80]

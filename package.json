@@ -1,4 +1,24 @@
 {
+  "name": "designate-rr-monitor",
+  "description": "Monitor round-robin clusters on OpenStack Designate",
+  "maintainers": [
+    {
+      "name": "Tim Dettrick",
+      "email": "t.dettrick@uq.edu.au"
+    }
+  ],
+  "licenses": [
+    {
+      "type": "MIT"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dit4c/designate-rr-monitor.git"
+  },
+  "scripts": {
+    "test": "node_modules/.bin/gulp"
+  },
   "dependencies": {
     "cli": "^0.6.5",
     "coffee-script": "^1.9.0",
@@ -7,5 +27,12 @@
     "lodash": "^3.1.0",
     "q": "^1.2.0",
     "request": "^2.53.0"
+  },
+  "devDependencies": {
+    "chai": "^2.1.1",
+    "gulp": "^3.8.11",
+    "gulp-coffeelint": "^0.4.0",
+    "gulp-mocha": "^2.0.0",
+    "gulp-util": "^3.0.4"
   }
 }
