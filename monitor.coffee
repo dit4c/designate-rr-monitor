@@ -1,0 +1,61 @@
+'use strict'
+
+_ = require('lodash')
+Q = require('q')
+async = require('async-q')
+StateMachine = require('javascript-state-machine')
+env = process.env
+isTcpOn = require('is-tcp-on')
+
+Checker = (settings) ->
+  cancelled = false
+
+  maxRetry = 5
+  retryCount = 0
+  interval = 2000
+
+  obj = {}
+  obj.start = (fsm) ->
+    test = () -> cancelled
+    fn = () ->
+      d = Q.defer()
+      success = () ->
+        retryCount = 0
+        fsm.online() if fsm.can('online')
+        d.resolve()
+      failure = () ->
+        if retryCount >= maxRetry
+          fsm.offline() if fsm.can('offline')
+        else
+          retryCount++
+        d.resolve()
+      isTcpOn(settings).then(success, failure)
+      d.promise.then () ->
+        Q.delay(interval)
+    async.until(test, fn).done()
+
+  obj.stop = () ->
+    cancelled = true
+
+  obj
+
+
+module.exports = (ipAddr, tcpPort) ->
+  settings =
+    host: ipAddr
+    port: tcpPort
+
+  fsm = StateMachine.create
+    initial: 'inactive',
+    events: [
+      { name: 'start',    from: 'inactive',                 to: 'unknown' },
+      { name: 'stop',     from: ['up', 'down', 'unknown'],  to: 'inactive'},
+      { name: 'offline',  from: ['up', 'unknown'],          to: 'down' },
+      { name: 'online',   from: ['down', 'unknown'],        to: 'up'  }
+    ]
+
+  checker = Checker(settings)
+  fsm.onstart = () -> checker.start(fsm)
+  fsm.onstop  = () -> checker.stop()
+
+  fsm

@@ -25,6 +25,7 @@
     "coffee-script": "^1.9.0",
     "hogan.js": "^3.0.2",
     "is-tcp-on": "^0.1.2",
+    "javascript-state-machine": "^2.3.5",
     "lodash": "^3.1.0",
     "moment": "^2.9.0",
     "q": "^1.2.0",
