@@ -18,6 +18,5 @@ describe 'resolver', () ->
 
   it 'should handle empty arrays', (done) ->
     rslv([]).done (records) ->
-      expect(records.A).to.be.empty
-      expect(records.AAAA).to.be.empty
+      expect(records).to.be.empty
       done()

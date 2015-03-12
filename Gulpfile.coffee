@@ -9,6 +9,7 @@ handleError = (err) ->
 gulp.task 'lint', () ->
   gulp.src('*.coffee')
     .pipe(coffeelint())
+    .pipe(coffeelint.reporter())
     .pipe(coffeelint.reporter('fail'))
 
 gulp.task 'watch', ['default'], () ->

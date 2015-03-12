@@ -29,19 +29,17 @@ cli.main (args, options) ->
   recordName = (args[1] || process.exit(1)) + '.'
   servers = (options.servers || process.exit(1)).split(',')
   tcpPort = options.port
-  resolveAll(servers).then (obj) ->
-    tmpl = Hogan.compile("{{type}}\t{{ip}}\t{{active}}")
-    Object.keys(obj).forEach (rrtype) ->
-      obj[rrtype].forEach (ip) ->
-        r = {ip: ip, type: rrtype}
-        isTcpOn({
-          port: tcpPort,
-          host: r.ip,
-        }).then( () ->
-          console.log(tmpl.render(_.extend(r, { active: "Up" })))
-        , () ->
-          console.log(tmpl.render(_.extend(r, { active: "Down" })))
-        )
+  resolveAll(servers).then (records) ->
+    tmpl = Hogan.compile("{{type}}\t{{addr}}\t{{active}}")
+    Q.all records.map (r) ->
+      isTcpOn({
+        port: tcpPort,
+        host: r.addr,
+      }).then( () ->
+        console.log(tmpl.render(_.extend(r, { active: "Up" })))
+      , () ->
+        console.log(tmpl.render(_.extend(r, { active: "Down" })))
+      )
   require('./designate')(recordName).list()
     .done (records) ->
       tmpl = Hogan.compile("{{type}}\t{{name}}\t{{data}}\t{{active}}")
