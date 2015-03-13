@@ -1,1 +1,1 @@
-monitor: `npm bin`/coffee index.coffee $RECORD -w -s $SERVERS
+monitor: bin/designate-rr-monitor $RECORD -w -s $SERVERS

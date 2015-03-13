@@ -31,7 +31,11 @@ cli.parse
   'watch':    ['w', 'Monitor for changes after first check', 'boolean']
 
 cli.main (args, options) ->
-  recordName = (args[1] || process.exit(1)) + '.'
+  recordName =
+    if _.isEmpty(args)
+      cli.fatal("Record name must be specified!")
+    else
+      args.pop().trim('.')+ '.'
   servers = _.flatten((options.servers ? '').split(/\s+/).map(braces))
   tcpPort = options.port
 
