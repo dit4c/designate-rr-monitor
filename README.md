@@ -1,6 +1,6 @@
 # designate-rr-monitor
 
-An OpenStack Designate service monitor and round-robin DNS record manager.
+An OpenStack Designate service monitor and round-robin DNS record manager. It allows you to check a series of servers, and update the round-robin record to include only those that are available.
 
 You will need to do the usual `source ~/MYTENANT-openrc.sh` before using it, or ensure that `OS_AUTH_URL`, `OS_TENANT_NAME`, `OS_USERNAME` and `OS_PASSWORD` are in the environment.
 
