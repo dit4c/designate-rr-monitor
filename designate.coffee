@@ -127,7 +127,7 @@ factory = (recordName, options) ->
         listRecords(info.token, info.endpoint, info.domain_id)
       .then (records) ->
         _.filter records, (record) ->
-          record.name == recordName
+          record.name == recordName and record.type in ['A','AAAA']
 
   add = (type, data) ->
     token().then (info) ->
