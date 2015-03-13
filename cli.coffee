@@ -29,7 +29,8 @@ cli.enable('status').setUsage("designate-rr-monitor [OPTIONS] <record>")
 cli.parse
   'delete':   ['d', 'Delete all records', 'boolean']
   'port':     ['p', 'TCP port to check', 'number', 80]
-  'servers':  ['s', 'whitespace-delimited list of servers (which may use brace expansion)', 'string']
+  'servers':  ['s', 'whitespace-delimited list of servers'
+                    +'(which may use brace expansion)', 'string']
   'watch':    ['w', 'Monitor for changes after first check', 'boolean']
 
 cli.main (args, options) ->
@@ -105,17 +106,17 @@ cli.main (args, options) ->
           records
         else
           Q.all recordsWithoutMonitors.map (r) ->
-              monitor = Monitor(r.addr, tcpPort)
-              monitor.onenterup = () ->
-                cli.info(r.addr+" is up")
-                updateDesignateRecords()
-              monitor.onenterdown = () ->
-                cli.info(r.addr+" is down")
-                updateDesignateRecords()
-              monitors.push(_.extend(r, { monitor: monitor }))
-              monitor.start()
-            .then () ->
-              records
+            monitor = Monitor(r.addr, tcpPort)
+            monitor.onenterup = () ->
+              cli.info(r.addr+" is up")
+              updateDesignateRecords()
+            monitor.onenterdown = () ->
+              cli.info(r.addr+" is down")
+              updateDesignateRecords()
+            monitors.push(_.extend(r, { monitor: monitor }))
+            monitor.start()
+          .then () ->
+            records
       .then (records) ->
         monitorsWithoutRecords = _.reject monitors, (monitor) ->
           _.some(records, _.partial(recordsAreSame, monitor))
@@ -124,13 +125,13 @@ cli.main (args, options) ->
           records
         else
           Q.all monitorsWithoutRecords.map (m) ->
-              m.stop()
-              m
-            .then () ->
-              monitors = monitors.reject (m) ->
-                _.some(monitorsWithoutRecords, _.partial(recordsAreSame, m))
-            .then () ->
-              records
+            m.stop()
+            m
+          .then () ->
+            monitors = monitors.reject (m) ->
+              _.some(monitorsWithoutRecords, _.partial(recordsAreSame, m))
+          .then () ->
+            records
 
   if options.watch
     async.forever () ->
