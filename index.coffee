@@ -25,14 +25,22 @@ for v in required_envvars
     process.exit(1)
 
 cli.parse
-  'watch':    ['w', 'Monitor for changes after first check', 'boolean']
+  'delete':   ['d', 'Delete all records', 'boolean']
   'port':     ['p', 'TCP port to check', 'number', 80]
   'servers':  ['s', 'whitespace-delimited list of servers (which may use brace expansion)', 'string']
+  'watch':    ['w', 'Monitor for changes after first check', 'boolean']
 
 cli.main (args, options) ->
   recordName = (args[1] || process.exit(1)) + '.'
-  servers = _.flatten((options.servers || []).split(/\s+/).map(braces))
+  servers = _.flatten((options.servers ? '').split(/\s+/).map(braces))
   tcpPort = options.port
+
+  if options.watch and options['delete']
+    cli.fatal("Deletion is a once-only operation.")
+
+  if _.isEmpty(options.servers) and !options['delete']
+    cli.fatal("Must specify servers unless deleting all records.")
+
 
   designate = require('./designate')(recordName)
 
@@ -43,16 +51,24 @@ cli.main (args, options) ->
 
   updateDesignateRecords = do () ->
     executing = null
+
+    sitrepEmptyTmpl = Hogan.compile(
+      "{{name}} {{whenchecked}} has no records.")
     sitrepTmpl = Hogan.compile(
       "{{name}} {{type}} records {{whenchecked}}:\t{{#addrs}} {{.}}{{/addrs}}")
     sitrep = (whenChecked) -> (currentRecords) ->
-      grouped = _.groupBy(currentRecords, 'type')
-      Object.keys(grouped).forEach (type) ->
-        cli.debug sitrepTmpl.render
+      if _.isEmpty(currentRecords)
+        cli.debug sitrepEmptyTmpl.render
           name: _.trim(recordName, '.')
-          type: type
           whenchecked: whenChecked
-          addrs: _.pluck(grouped[type], "data")
+      else
+        grouped = _.groupBy(currentRecords, 'type')
+        Object.keys(grouped).forEach (type) ->
+          cli.debug sitrepTmpl.render
+            name: _.trim(recordName, '.')
+            whenchecked: whenChecked
+            type: type
+            addrs: _.pluck(grouped[type], "data")
       currentRecords
     fn = () ->
       designate.list()
@@ -115,6 +131,8 @@ cli.main (args, options) ->
       resolveAndUpdateMonitors()
         .then () ->
           Q.delay(60000)
+  else if options['delete']
+    updateDesignateRecords()
   else
     cli.debug("Resolving once only. Use -w to monitor indefinitely.")
     finished = () ->
