@@ -1,1 +1,1 @@
-monitor: bin/designate-rr-monitor -w -s "$SERVERS" $RECORD
+monitor: bin/designate-rr-monitor -w -s "$SERVERS" --debug $RECORD
