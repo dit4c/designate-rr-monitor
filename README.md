@@ -20,13 +20,16 @@ Options:
 ```
 
 For example, to do a one-off record update:
-
-    designate-rr-monitor -s "server-{01..04}.example.test" www.example.test
+```shell
+designate-rr-monitor -s "server-{01..04}.example.net" www.example.net
+```
 
 To do an update, then continue watching:
-
-    designate-rr-monitor -w -s "server-{01..04}.example.test" www.example.test
+```shell
+designate-rr-monitor -w -s "server-{01..04}.example.net" www.example.net
+```
 
 To delete all records:
-
-    designate-rr-monitor -d www.example.test
+```shell
+designate-rr-monitor -d www.example.net
+```
