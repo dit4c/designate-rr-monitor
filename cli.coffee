@@ -29,8 +29,9 @@ cli.enable('status').setUsage("designate-rr-monitor [OPTIONS] <record>")
 cli.parse
   'delete':   ['d', 'Delete all records', 'boolean']
   'port':     ['p', 'TCP port to check', 'number', 80]
-  'servers':  ['s', 'whitespace-delimited list of servers'
-                    +'(which may use brace expansion)', 'string']
+  'servers':  ['s',
+    'whitespace-delimited list of servers (which may use brace expansion)',
+    'string']
   'watch':    ['w', 'Monitor for changes after first check', 'boolean']
 
 cli.main (args, options) ->
