@@ -24,6 +24,8 @@ for v in required_envvars
     console.log("Required environment variable "+v+" is not defined.")
     process.exit(1)
 
+cli.enable('status').setUsage("designate-rr-monitor [OPTIONS] <record>")
+
 cli.parse
   'delete':   ['d', 'Delete all records', 'boolean']
   'port':     ['p', 'TCP port to check', 'number', 80]
