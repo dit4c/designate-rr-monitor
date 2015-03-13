@@ -16,6 +16,7 @@
     "type": "git",
     "url": "https://github.com/dit4c/designate-rr-monitor.git"
   },
+  "bin": "./bin/designate-rr-monitor",
   "scripts": {
     "test": "node_modules/.bin/gulp"
   },
