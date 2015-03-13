@@ -148,7 +148,6 @@ factory = (recordName, options) ->
           _.some existingRecords, (r2) ->
             r1.type == r2.type && r1.addr == r2.data
         jobs = recordsToAdd.map (r) -> () ->
-          console.log("Adding "+r.addr)
           add(r.type, r.addr)
         async.series(jobs)
   obj.retainAll = (records) ->
@@ -158,7 +157,6 @@ factory = (recordName, options) ->
           _.some records, (r2) ->
             r1.type == r2.type && r1.data == r2.addr
         jobs = recordsToDelete.map (r) -> () ->
-          console.log("Removing "+r.data)
           remove(r.id)
         async.series(jobs)
   obj

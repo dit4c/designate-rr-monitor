@@ -10,6 +10,9 @@ resolve = (rrtype) -> (hostname) ->
     d.resolve(if err then [] else result)
   d.promise
 
+eqVal = (r) ->
+  r.type+"!"+r.addr
+
 # eg. resolveAll('www.google.com', 'www.internode.on.net') ⇒
 # [
 #   { type: 'A', addr: '150.101.140.197' }
@@ -20,10 +23,10 @@ resolve = (rrtype) -> (hostname) ->
 module.exports = (hostnames) ->
   resolveType = (rrtype) ->
     Q.all(hostnames.map(resolve(rrtype)))
-      .then(_.flow(_.flatten, _.sortBy))
+      .then _.flow(_.flatten, _.sortBy)
       .then (addrs) ->
         addrs.map (addr) -> { type: rrtype, addr: addr }
   resolveTypes = (types) ->
     Q.all(types.map(resolveType))
-      .then _.flatten
+      .then _.flow(_.flatten, (l) -> _.uniq(l, false, eqVal))
   resolveTypes(['A', 'AAAA'])
