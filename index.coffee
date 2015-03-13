@@ -25,6 +25,7 @@ for v in required_envvars
     process.exit(1)
 
 cli.parse
+  'watch':    ['w', 'Monitor for changes after first check', 'boolean']
   'port':     ['p', 'TCP port to check', 'number', 80]
   'servers':  ['s', 'whitespace-delimited list of servers (which may use brace expansion)', 'string']
 
@@ -72,35 +73,59 @@ cli.main (args, options) ->
         executing = semaphoredFn()
     _.throttle(queuedFn, 1000, leading: false)
 
-  async.forever () ->
+  resolveAndUpdateMonitors = () ->
     resolveAll(servers)
       .then (records) ->
         recordsWithoutMonitors = _.reject records, (record) ->
           _.some(monitors, _.partial(recordsAreSame, record))
 
-        Q.all recordsWithoutMonitors.map (r) ->
-            monitor = Monitor(r.addr, tcpPort)
-            monitor.onenterup = () ->
-              cli.info(r.addr+" is up")
-              updateDesignateRecords()
-            monitor.onenterdown = () ->
-              cli.info(r.addr+" is down")
-              updateDesignateRecords()
-            monitors.push(_.extend(r, { monitor: monitor }))
-            monitor.start()
-          .then () ->
-            records
+        if _.isEmpty(recordsWithoutMonitors)
+          records
+        else
+          Q.all recordsWithoutMonitors.map (r) ->
+              monitor = Monitor(r.addr, tcpPort)
+              monitor.onenterup = () ->
+                cli.info(r.addr+" is up")
+                updateDesignateRecords()
+              monitor.onenterdown = () ->
+                cli.info(r.addr+" is down")
+                updateDesignateRecords()
+              monitors.push(_.extend(r, { monitor: monitor }))
+              monitor.start()
+            .then () ->
+              records
       .then (records) ->
         monitorsWithoutRecords = _.reject monitors, (monitor) ->
           _.some(records, _.partial(recordsAreSame, monitor))
 
-        Q.all monitorsWithoutRecords.map (m) ->
-          m.stop()
-          m
-        .then () ->
-          monitors = monitors.reject (m) ->
-            _.some(monitorsWithoutRecords, _.partial(recordsAreSame, m))
-        .then () ->
+        if _.isEmpty(monitorsWithoutRecords)
           records
+        else
+          Q.all monitorsWithoutRecords.map (m) ->
+              m.stop()
+              m
+            .then () ->
+              monitors = monitors.reject (m) ->
+                _.some(monitorsWithoutRecords, _.partial(recordsAreSame, m))
+            .then () ->
+              records
+
+  if options.watch
+    async.forever () ->
+      resolveAndUpdateMonitors()
+        .then () ->
+          Q.delay(60000)
+  else
+    cli.debug("Resolving once only. Use -w to monitor indefinitely.")
+    finished = () ->
+      _.all(monitors, (m) -> !m.monitor.is('unknown'))
+    resolveAndUpdateMonitors()
       .then () ->
-        Q.delay(60000)
+        async.until(finished, () -> Q.delay(500))
+      .then () ->
+        if _.isEmpty(monitors)
+          Q()
+        else
+          Q.all monitors.map (m) ->
+            m.monitor.stop()
+      .done()

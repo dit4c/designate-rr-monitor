@@ -16,7 +16,8 @@ Checker = (settings) ->
 
   obj = {}
   obj.start = (fsm) ->
-    test = () -> cancelled
+    test = () ->
+      cancelled
     fn = () ->
       d = Q.defer()
       success = () ->
@@ -32,10 +33,11 @@ Checker = (settings) ->
       isTcpOn(settings).then(success, failure)
       d.promise.then () ->
         Q.delay(interval)
-    async.until(test, fn).done()
+    obj._promise = async.until(test, fn)
 
   obj.stop = () ->
     cancelled = true
+    obj._promise
 
   obj
 
