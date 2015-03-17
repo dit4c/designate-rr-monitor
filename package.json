@@ -27,13 +27,13 @@
   "dependencies": {
     "async-q": "^0.2.2",
     "braces": "^1.7.0",
+    "bytes": "^1.0.0",
     "cli": "^0.6.5",
     "coffee-script": "^1.9.0",
     "hogan.js": "^3.0.2",
     "is-tcp-on": "^0.1.2",
     "javascript-state-machine": "^2.3.5",
     "lodash": "^3.1.0",
-    "memwatch": "^0.2.2",
     "moment": "^2.9.0",
     "q": "^1.2.0",
     "request": "^2.53.0"

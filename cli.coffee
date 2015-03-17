@@ -9,9 +9,13 @@ cli = require('cli')
 env = process.env
 isTcpOn = require('is-tcp-on')
 
-memwatch = require('memwatch')
-getMem = () ->
-  (new memwatch.HeapDiff()).end().after.size
+getMem = do () ->
+  bytes = require('bytes')
+  tmpl = Hogan.compile(
+         "RSS: {{rss}} ; Heap: {{heapUsed}}/{{heapTotal}}")
+  () ->
+    mem = _.zipObject(_.map(process.memoryUsage(), (v, k) -> [k, bytes(v)]))
+    tmpl.render(mem)
 
 Monitor = require('./monitor')
 resolveAll = require('./resolver')
@@ -147,7 +151,7 @@ cli.main (args, options) ->
     async.forever () ->
       resolveAndUpdateMonitors()
         .then () ->
-          cli.debug("Current memory usage: "+getMem())
+          cli.debug(getMem())
           Q.delay(60000)
   else if options['delete']
     updateDesignateRecords()
