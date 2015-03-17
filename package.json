@@ -1,6 +1,6 @@
 {
   "name": "designate-rr-monitor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Monitor round-robin clusters on OpenStack Designate",
   "maintainers": [
     {
