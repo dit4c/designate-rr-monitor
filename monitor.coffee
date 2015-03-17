@@ -7,15 +7,15 @@ StateMachine = require('javascript-state-machine')
 env = process.env
 isTcpOn = require('is-tcp-on')
 
+maxRetry = 5
+interval = 2000
+
 Checker = (settings) ->
   cancelled = false
 
-  maxRetry = 5
-  retryCount = 0
-  interval = 2000
-
   obj = {}
   obj.start = (fsm) ->
+    retryCount = 0
     test = () ->
       cancelled
     fn = () ->

@@ -4,6 +4,10 @@ _ = require('lodash')
 Q = require('q')
 dns = require('dns')
 
+class DnsRecord
+  constructor: (@type, @addr) ->
+    # Nothing required
+
 resolve = (rrtype) -> (hostname) ->
   d = Q.defer()
   dns.resolve hostname, rrtype, (err, result) ->
@@ -25,7 +29,7 @@ module.exports = (hostnames) ->
     Q.all(hostnames.map(resolve(rrtype)))
       .then _.flow(_.flatten, _.sortBy)
       .then (addrs) ->
-        addrs.map (addr) -> { type: rrtype, addr: addr }
+        addrs.map (addr) -> new DnsRecord(rrtype, addr)
   resolveTypes = (types) ->
     Q.all(types.map(resolveType))
       .then _.flow(_.flatten, (l) -> _.uniq(l, false, eqVal))

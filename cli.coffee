@@ -9,6 +9,10 @@ cli = require('cli')
 env = process.env
 isTcpOn = require('is-tcp-on')
 
+memwatch = require('memwatch')
+getMem = () ->
+  (new memwatch.HeapDiff()).end().after.size
+
 Monitor = require('./monitor')
 resolveAll = require('./resolver')
 
@@ -57,27 +61,27 @@ cli.main (args, options) ->
   recordsAreSame = (r1, r2) ->
     r1.type == r2.type and r1.addr == r2.addr
 
-  updateDesignateRecords = do () ->
-    executing = null
-
-    sitrepEmptyTmpl = Hogan.compile(
+  sitrep = do () ->
+    emptyTmpl = Hogan.compile(
       "{{name}} {{whenchecked}} has no records.")
-    sitrepTmpl = Hogan.compile(
+    recordsTmpl = Hogan.compile(
       "{{name}} {{type}} records {{whenchecked}}:\t{{#addrs}} {{.}}{{/addrs}}")
-    sitrep = (whenChecked) -> (currentRecords) ->
+    (whenChecked) -> (currentRecords) ->
       if _.isEmpty(currentRecords)
-        cli.debug sitrepEmptyTmpl.render
+        cli.debug emptyTmpl.render
           name: _.trim(recordName, '.')
           whenchecked: whenChecked
       else
         grouped = _.groupBy(currentRecords, 'type')
         Object.keys(grouped).forEach (type) ->
-          cli.debug sitrepTmpl.render
+          cli.debug recordsTmpl.render
             name: _.trim(recordName, '.')
             whenchecked: whenChecked
             type: type
             addrs: _.pluck(grouped[type], "data")
       currentRecords
+
+  updateDesignateRecords = do () ->
     fn = () ->
       designate.list()
         .then sitrep("pre-update")
@@ -88,9 +92,10 @@ cli.main (args, options) ->
         .then () ->
           designate.list()
         .then sitrep("post-update")
-    semaphoredFn = () ->
-      Q.try(() -> executing = fn()).then(() -> executing = null)
     queuedFn = () ->
+      executing = null
+      semaphoredFn = () ->
+        Q.try(() -> executing = fn()).then(() -> executing = null)
       if executing
         executing.then semaphoredFn
       else
@@ -100,44 +105,49 @@ cli.main (args, options) ->
   resolveAndUpdateMonitors = () ->
     resolveAll(servers)
       .then (records) ->
-        recordsWithoutMonitors = _.reject records, (record) ->
-          _.some(monitors, _.partial(recordsAreSame, record))
-
-        if _.isEmpty(recordsWithoutMonitors)
-          records
-        else
-          Q.all recordsWithoutMonitors.map (r) ->
-            monitor = Monitor(r.addr, tcpPort)
-            monitor.onenterup = () ->
-              cli.info(r.addr+" is up")
-              updateDesignateRecords()
-            monitor.onenterdown = () ->
-              cli.info(r.addr+" is down")
-              updateDesignateRecords()
-            monitors.push(_.extend(r, { monitor: monitor }))
-            monitor.start()
+        Q()
           .then () ->
-            records
+            _.reject records, (record) ->
+              _.some(monitors, _.partial(recordsAreSame, record))
+          .then (recordsWithoutMonitors) ->
+            if _.isEmpty(recordsWithoutMonitors)
+              records
+            else
+              Q.all recordsWithoutMonitors.map (r) ->
+                monitor = Monitor(r.addr, tcpPort)
+                monitor.onenterup = () ->
+                  cli.info(r.addr+" is up")
+                  updateDesignateRecords()
+                monitor.onenterdown = () ->
+                  cli.info(r.addr+" is down")
+                  updateDesignateRecords()
+                monitors.push(_.extend(r, { monitor: monitor }))
+                monitor.start()
+                null
+              .then () ->
+                records
       .then (records) ->
-        monitorsWithoutRecords = _.reject monitors, (monitor) ->
-          _.some(records, _.partial(recordsAreSame, monitor))
-
-        if _.isEmpty(monitorsWithoutRecords)
-          records
-        else
-          Q.all monitorsWithoutRecords.map (m) ->
-            m.stop()
-            m
+        Q()
           .then () ->
-            monitors = monitors.reject (m) ->
-              _.some(monitorsWithoutRecords, _.partial(recordsAreSame, m))
-          .then () ->
-            records
+            _.reject monitors, (monitor) ->
+              _.some(records, _.partial(recordsAreSame, monitor))
+          .then (monitorsWithoutRecords) ->
+            if _.isEmpty(monitorsWithoutRecords)
+              records
+            else
+              Q.all monitorsWithoutRecords.map (m) ->
+                m.monitor.stop()
+                m.monitor = null
+              .then () ->
+                monitors = monitors.reject (m) ->
+                  _.some(monitorsWithoutRecords, _.partial(recordsAreSame, m))
+                records
 
   if options.watch
     async.forever () ->
       resolveAndUpdateMonitors()
         .then () ->
+          cli.debug("Current memory usage: "+getMem())
           Q.delay(60000)
   else if options['delete']
     updateDesignateRecords()

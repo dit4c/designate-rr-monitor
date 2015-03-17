@@ -20,3 +20,9 @@ describe 'resolver', () ->
     rslv([]).done (records) ->
       expect(records).to.be.empty
       done()
+
+  it 'should handle resolve IPv4 & IPv6 addresses', (done) ->
+    rslv(['www.google.com']).done (records) ->
+      expect(records.filter (r) -> r.type == 'A').not.to.be.empty
+      expect(records.filter (r) -> r.type == 'AAAA').not.to.be.empty
+      done()
