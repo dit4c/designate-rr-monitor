@@ -11,8 +11,7 @@ isTcpOn = require('is-tcp-on')
 
 getMem = do () ->
   bytes = require('bytes')
-  tmpl = Hogan.compile(
-         "RSS: {{rss}} ; Heap: {{heapUsed}}/{{heapTotal}}")
+  tmpl = Hogan.compile("RSS: {{rss}} ; Heap: {{heapUsed}}/{{heapTotal}}")
   () ->
     mem = _.zipObject(_.map(process.memoryUsage(), (v, k) -> [k, bytes(v)]))
     tmpl.render(mem)
