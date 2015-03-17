@@ -30,6 +30,7 @@
     "bytes": "^1.0.0",
     "cli": "^0.6.5",
     "coffee-script": "^1.9.0",
+    "gc": "0.0.2",
     "hogan.js": "^3.0.2",
     "is-tcp-on": "^0.1.2",
     "javascript-state-machine": "^2.3.5",

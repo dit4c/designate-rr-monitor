@@ -7,6 +7,7 @@ async = require('async-q')
 braces = require('braces')
 cli = require('cli')
 env = process.env
+gc = require("gc")
 isTcpOn = require('is-tcp-on')
 
 getMem = do () ->
@@ -151,6 +152,7 @@ cli.main (args, options) ->
       resolveAndUpdateMonitors()
         .then () ->
           cli.debug(getMem())
+          gc() # Garbage collecting here "fixes" the memory leak!
           Q.delay(60000)
   else if options['delete']
     updateDesignateRecords()

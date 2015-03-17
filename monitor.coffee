@@ -19,20 +19,17 @@ Checker = (settings) ->
     test = () ->
       cancelled
     fn = () ->
-      d = Q.defer()
-      success = () ->
-        retryCount = 0
-        fsm.online() if fsm.can('online')
-        d.resolve()
-      failure = () ->
-        if retryCount >= maxRetry
-          fsm.offline() if fsm.can('offline')
-        else
-          retryCount++
-        d.resolve()
-      isTcpOn(settings).then(success, failure)
-      d.promise.then () ->
-        Q.delay(interval)
+      isTcpOn(settings)
+        .then () ->
+          retryCount = 0
+          fsm.online() if fsm.can('online')
+        .catch () ->
+          if retryCount >= maxRetry
+            fsm.offline() if fsm.can('offline')
+          else
+            retryCount++
+        .then () ->
+          Q.delay(interval)
     obj._promise = async.until(test, fn)
 
   obj.stop = () ->
