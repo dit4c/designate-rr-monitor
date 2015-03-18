@@ -44,6 +44,7 @@
     "gulp": "^3.8.11",
     "gulp-coffeelint": "^0.4.0",
     "gulp-mocha": "^2.0.0",
-    "gulp-util": "^3.0.4"
+    "gulp-util": "^3.0.4",
+    "memwatch": "^0.2.2"
   }
 }

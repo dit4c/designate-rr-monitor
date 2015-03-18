@@ -7,40 +7,41 @@ StateMachine = require('javascript-state-machine')
 env = process.env
 isTcpOn = require('is-tcp-on')
 
-maxRetry = 5
-interval = 2000
+defaultSettings =
+  maxRetry: 5
+  interval: 2000
 
 Checker = (settings) ->
-  cancelled = false
+  settings = _.defaults(settings, defaultSettings)
 
-  obj = {}
-  obj.start = (fsm) ->
+  fn = do () ->
     retryCount = 0
-    test = () ->
-      cancelled
-    fn = () ->
+    (fsm) ->
       isTcpOn(settings)
         .then () ->
           retryCount = 0
           fsm.online() if fsm.can('online')
         .catch () ->
-          if retryCount >= maxRetry
+          if retryCount >= settings.maxRetry
             fsm.offline() if fsm.can('offline')
           else
             retryCount++
-        .then () ->
-          Q.delay(interval)
-    obj._promise = async.until(test, fn)
+
+  obj = {}
+  obj.start = (fsm) ->
+    obj._intervalID = setInterval(fn, settings.interval, fsm)
+    obj._deferred = Q.defer()
+    obj._deferred.promise
 
   obj.stop = () ->
-    cancelled = true
-    obj._promise
+    clearInterval(obj._intervalID)
+    obj._deferred.resolve()
 
   obj
 
 
-module.exports = (ipAddr, tcpPort) ->
-  settings =
+module.exports = (ipAddr, tcpPort, options) ->
+  settings = _.assign {}, options,
     host: ipAddr
     port: tcpPort
 

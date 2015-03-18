@@ -40,6 +40,8 @@ cli.parse
   'servers':  ['s',
     'whitespace-delimited list of servers (which may use brace expansion)',
     'string']
+  'server-lookup-interval': [null,
+    'Seconds to wait before refreshing server IPs from DNS', 'number', 60],
   'watch':    ['w', 'Monitor for changes after first check', 'boolean']
 
 cli.main (args, options) ->
@@ -49,6 +51,7 @@ cli.main (args, options) ->
     else
       args.pop().trim('.')+ '.'
   servers = _.flatten((options.servers ? '').split(/\s+/).map(braces))
+  lookupInterval = options['server-lookup-interval'] * 1000
   tcpPort = options.port
 
   if options.watch and options['delete']
@@ -57,6 +60,8 @@ cli.main (args, options) ->
   if _.isEmpty(options.servers) and !options['delete']
     cli.fatal("Must specify servers unless deleting all records.")
 
+  if !_.isEmpty(options.servers) and options['delete']
+    cli.fatal("Server list should not be specified for record deletion.")
 
   designate = require('./designate')(recordName)
 
@@ -153,7 +158,7 @@ cli.main (args, options) ->
         .then () ->
           cli.debug(getMem())
           gc() # Garbage collecting here "fixes" the memory leak!
-          Q.delay(60000)
+          Q.delay(lookupInterval)
   else if options['delete']
     updateDesignateRecords()
   else
