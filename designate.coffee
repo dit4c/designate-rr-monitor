@@ -116,7 +116,10 @@ factory = (recordName, options) ->
       newTokenAndEndpoint().then (info) ->
         listDomains(info.token, info.endpoint)
           .then (domains) ->
-            _.find domains, (d) -> recordName.indexOf(d.name) != -1
+            _.chain(domains)
+              .filter (d) -> recordName.indexOf(d.name) != -1
+              .max (d) -> d.name.length
+              .value()
           .then (domain) ->
             infoRef.info = _.extend(info, { domain_id: domain.id })
 
