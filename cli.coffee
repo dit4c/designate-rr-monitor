@@ -91,6 +91,7 @@ cli.main (args, options) ->
       currentRecords
 
   updateDesignateRecords = do () ->
+    deferred = null
     fn = () ->
       designate.list()
         .then sitrep("pre-update")
@@ -102,14 +103,17 @@ cli.main (args, options) ->
           designate.list()
         .then sitrep("post-update")
     queuedFn = () ->
-      executing = null
-      semaphoredFn = () ->
-        Q.try(() -> executing = fn()).then(() -> executing = null)
-      if executing
-        executing.then semaphoredFn
+      if deferred
+        deferred.promise
       else
-        executing = semaphoredFn()
-    _.throttle(queuedFn, 1000, leading: false)
+        deferred = Q.defer()
+        Q.delay(1000)
+          .then fn
+          .done () ->
+            deferred.resolve()
+            deferred = null
+        deferred.promise
+    queuedFn
 
   resolveAndUpdateMonitors = () ->
     resolveAll(servers)
@@ -124,12 +128,11 @@ cli.main (args, options) ->
             else
               Q.all recordsWithoutMonitors.map (r) ->
                 monitor = Monitor(r.addr, tcpPort)
-                monitor.onenterup = () ->
-                  cli.info(r.addr+" is up")
+                enterFn = () ->
+                  cli.info(r.addr+" is "+monitor.current)
                   updateDesignateRecords()
-                monitor.onenterdown = () ->
-                  cli.info(r.addr+" is down")
-                  updateDesignateRecords()
+                monitor.onenterup = enterFn
+                monitor.onenterdown = enterFn
                 monitors.push(_.extend(r, { monitor: monitor }))
                 monitor.start()
                 null
@@ -168,6 +171,8 @@ cli.main (args, options) ->
     resolveAndUpdateMonitors()
       .then () ->
         async.until(finished, () -> Q.delay(500))
+      .then () ->
+        updateDesignateRecords()
       .then () ->
         if _.isEmpty(monitors)
           Q()
