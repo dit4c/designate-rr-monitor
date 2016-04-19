@@ -32,13 +32,13 @@ newTokenAndEndpoint = (callback) ->
       d.resolve
         expiry: body.access.token.expires,
         token: body.access.token.id,
-        endpoint: designateEndpoint
+        endpoint: designateEndpoint+"v1/"
   d.promise
 
 listDomains = (token, endpoint) ->
   d = Q.defer()
   options =
-    url: endpoint + '/domains'
+    url: endpoint + 'domains/'
     json: true
     headers:
       'Accept': 'application/json'
@@ -53,7 +53,7 @@ listDomains = (token, endpoint) ->
 listRecords = (token, endpoint, domainId) ->
   d = Q.defer()
   options =
-    url: endpoint + '/domains/' + domainId + '/records'
+    url: endpoint + 'domains/' + domainId + '/records'
     json: true
     headers:
       'Accept': 'application/json'
@@ -68,7 +68,7 @@ listRecords = (token, endpoint, domainId) ->
 addRecord = (token, endpoint, domainId, record) ->
   d = Q.defer()
   options =
-    url: endpoint + '/domains/' + domainId + '/records'
+    url: endpoint + 'domains/' + domainId + '/records'
     json: true
     headers:
       'Accept': 'application/json'
@@ -85,7 +85,7 @@ addRecord = (token, endpoint, domainId, record) ->
 deleteRecord = (token, endpoint, domainId, recordId) ->
   d = Q.defer()
   options =
-    url: endpoint + '/domains/' + domainId + '/records/' + recordId
+    url: endpoint + 'domains/' + domainId + '/records/' + recordId
     headers:
       'X-Auth-Token': token
   request.del options, (error, response) ->
